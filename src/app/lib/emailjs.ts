@@ -65,16 +65,18 @@ export async function sendContactEmail(data: ContactFormData): Promise<void> {
   const { serviceId, templateId, publicKey } = getEmailJsConfig();
 
   try {
-    emailjs.init(publicKey);
-
-    await emailjs.send(serviceId, templateId, {
-      from_name: data.name.trim(),
-      from_email: data.email.trim(),
-      message: data.message.trim(),
-      // Compatibility with templates using {{name}} / {{email}}
-      name: data.name.trim(),
-      email: data.email.trim(),
-    });
+    await emailjs.send(
+      serviceId,
+      templateId,
+      {
+        from_name: data.name.trim(),
+        from_email: data.email.trim(),
+        message: data.message.trim(),
+        name: data.name.trim(),
+        email: data.email.trim(),
+      },
+      publicKey
+    );
   } catch (error) {
     const err = error as EmailJsError;
     const status = err?.status ? ` (status ${err.status})` : "";
