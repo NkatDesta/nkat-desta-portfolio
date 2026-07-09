@@ -1,5 +1,3 @@
-import emailjs from "@emailjs/browser";
-
 export interface ContactFormData {
   name: string;
   email: string;
@@ -12,32 +10,7 @@ export interface ContactFormErrors {
   message?: string;
 }
 
-export interface EmailJsConfig {
-  serviceId: string;
-  templateId: string;
-  publicKey: string;
-}
-
-type EmailJsError = {
-  status?: number;
-  text?: string;
-};
-
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function getEmailJsConfig(): EmailJsConfig {
-  const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID?.trim();
-  const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID?.trim();
-  const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY?.trim();
-
-  if (!serviceId || !templateId || !publicKey) {
-    throw new Error(
-      "EmailJS is not configured. Add VITE_EMAILJS_SERVICE_ID, VITE_EMAILJS_TEMPLATE_ID, and VITE_EMAILJS_PUBLIC_KEY to your .env file.",
-    );
-  }
-
-  return { serviceId, templateId, publicKey };
-}
 
 export function validateContactForm(data: ContactFormData): ContactFormErrors {
   const errors: ContactFormErrors = {};
@@ -61,29 +34,41 @@ export function validateContactForm(data: ContactFormData): ContactFormErrors {
   return errors;
 }
 
-export async function sendContactEmail(data: ContactFormData): Promise<void> {
-  const { serviceId, templateId, publicKey } = getEmailJsConfig();
+export async function sendContactEmail(
+  data: ContactFormData
+): Promise<void> {
+  const accessKey = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY?.trim();
+
+  if (!accessKey) {
+    throw new Error("Web3Forms is not configured.");
+  }
 
   try {
-    await emailjs.send(
-      serviceId,
-      templateId,
-      {
-        from_name: data.name.trim(),
-        from_email: data.email.trim(),
-        message: data.message.trim(),
+    const response = await fetch("https://api.web3forms.com/submit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        access_key: accessKey,
         name: data.name.trim(),
         email: data.email.trim(),
-      },
-      publicKey
-    );
-  } catch (error) {
-    const err = error as EmailJsError;
-    const status = err?.status ? ` (status ${err.status})` : "";
-    const text = err?.text ? ` ${err.text}` : "";
+        message: data.message.trim(),
+        subject: `Portfolio Contact from ${data.name.trim()}`,
+      }),
+    });
 
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.message || "Failed to send message.");
+    }
+  } catch (error) {
     throw new Error(
-      `Failed to send message via EmailJS${status}.${text}`.trim(),
+      error instanceof Error
+        ? error.message
+        : "Failed to send message."
     );
   }
 }
